@@ -1,20 +1,20 @@
 import { Pool } from 'pg';
 
 const pool = new Pool({
-  user: 'postgres',
+  user: process.env.DB_USER,
   host: 'localhost',
-  database: 'bugtracker',
+  database: 'attendance_db',
   password: process.env.DB_PASS,
   port: 5432,
 });
 
-export async function createUser(phone, email, first_name, last_name) {
+export async function createUser(first_name, last_name, phone, email) {
   const sql = `
-    INSERT INTO users (phone, email, first_name, last_name)
-    VALUES ($1, LOWER($2), $3, $4)
+    INSERT INTO users (first_name, last_name, phone, email)
+    VALUES ($1, $2, $3, LOWER($4))
     RETURNING user_id;
   `;
-  const { rows } = await pool.query(sql, [phone, email, first_name, last_name]);
+  const { rows } = await pool.query(sql, [first_name, last_name, phone, email]);
   return rows[0].user_id;
 }
 

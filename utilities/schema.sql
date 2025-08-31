@@ -4,10 +4,10 @@ CREATE EXTENSION IF NOT EXISTS citext;    -- case-insensitive email
 -- People
 CREATE TABLE users (
   user_id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  phone          TEXT UNIQUE NOT NULL,
-  email          CITEXT UNIQUE,
   first_name     TEXT,
   last_name      TEXT,
+  phone          TEXT UNIQUE NOT NULL,
+  email          CITEXT UNIQUE,
   sign_in_times  DATE[] NOT NULL DEFAULT '{}',  -- array of sign-in dates
   created_at     DATE NOT NULL DEFAULT current_date
 );

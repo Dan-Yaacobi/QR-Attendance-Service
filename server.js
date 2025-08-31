@@ -4,9 +4,9 @@ import express from 'express'
 import path from 'path'
 import cors from 'cors'
 import { fileURLToPath } from 'url'
-
-// import { getAllReports, saveReport, deleteReport } from './db.js'
 import {sendEmail} from './utilities/mailer.js'
+
+import { createUser } from './db.js'
 
 // __dirname replacement in ESM
 const __filename = fileURLToPath(import.meta.url)
@@ -23,6 +23,8 @@ app.use(session({
   resave: false,
   saveUninitialized: false
 }))
+app.use(express.urlencoded({ extended: true }));
+
 app.use((req, res, next) => {
   const time = new Date().toISOString()
   console.log(`[${time}] ${req.method} ${req.url}`)
@@ -34,18 +36,32 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'view', 'qr_page.html'))
 })
 
-// Example usage of DB + email
-app.post('/reports', async (req, res) => {
-  try {
-    const { text } = req.body
-    await saveReport(text)
-    await sendEmail('admin@example.com', 'New report', text)
-    res.json({ ok: true })
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: 'Server error' })
-  }
+app.get('/login', (req,res) => {
+  res.sendFile(path.join(__dirname, 'view','login.html'))
 })
+
+
+app.post('/login', async (req, res) => {
+  try {
+    const { firstName, lastName, phone, email } = req.body;
+    console.log(req.body)
+    const userId = await createUser({ firstName, lastName, phone, email });
+    res.redirect('/login_success.html')
+    // res.json({ ok: true, userId });
+  }
+  catch (err) {
+    if (err.code === '23505') { //UNIQUE VIOLATION POSTGRES ERROR
+      res.status(409).json({ ok: false, error: 'User already exists' });
+    }
+    else if (err.code === '23502') { //NULL VIOLATION POSTGRES ERROR
+      res.status(400).json({ ok: false, error: 'Phone is required' });
+    }
+    else {
+      console.error(err);
+      res.status(500).json({ ok: false, error: 'Internal server error' });
+    }
+  }
+});
 
 const PORT = process.env.PORT || 3000
 app.listen(PORT, () => {

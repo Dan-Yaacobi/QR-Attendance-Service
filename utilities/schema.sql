@@ -14,7 +14,7 @@ CREATE TABLE users (
 
 -- Device/browser token stored in localStorage
 CREATE TABLE device_ids (
-  device_uuid    UUID PRIMARY KEY,
+  device_uuid    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id        UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   first_seen_at  DATE NOT NULL DEFAULT current_date,
   last_seen_at   DATE NOT NULL DEFAULT current_date

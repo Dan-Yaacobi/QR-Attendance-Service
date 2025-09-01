@@ -5,14 +5,14 @@ import path from 'path'
 import cors from 'cors'
 import { fileURLToPath } from 'url'
 import {sendEmail} from './utilities/mailer.js'
-
-import { createUser } from './db.js'
+import { createUser} from './db.js'
 
 // __dirname replacement in ESM
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const app = express()
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 // Middleware
 app.use(cors())
@@ -38,15 +38,18 @@ app.get('/', (req, res) => {
 
 app.get('/login', (req,res) => {
   res.sendFile(path.join(__dirname, 'view','login.html'))
-})
+});
 
+app.get('/sign_in_success',(req,res) => {
+res.sendFile(path.join(__dirname, 'view', 'sign_in_success.html'))
+});
 
 app.post('/login', async (req, res) => {
   try {
     const { firstName, lastName, phone, email } = req.body;
-    console.log(req.body)
-    const userId = await createUser({ firstName, lastName, phone, email });
-    res.redirect('/login_success.html')
+    const {userId, deviceId} = await createUser(firstName, lastName, phone, email);
+    console.log(deviceId)
+    res.redirect('/sign_in_success')
     // res.json({ ok: true, userId });
   }
   catch (err) {
@@ -61,6 +64,10 @@ app.post('/login', async (req, res) => {
       res.status(500).json({ ok: false, error: 'Internal server error' });
     }
   }
+});
+
+app.post('/login_failed', async (req,res) =>{
+  
 });
 
 const PORT = process.env.PORT || 3000

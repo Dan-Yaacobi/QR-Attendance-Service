@@ -4,9 +4,11 @@ import express from 'express'
 import path from 'path'
 import cors from 'cors'
 import { fileURLToPath } from 'url'
+
 import {sendEmail} from './utilities/mailer.js'
 import { createUser} from './db.js'
-
+import { Pool } from 'pg';
+import qrRouter from './routes/qr.js'
 // __dirname replacement in ESM
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -24,6 +26,7 @@ app.use(session({
   saveUninitialized: false
 }))
 app.use(express.urlencoded({ extended: true }));
+app.use('/api/qr', qrRouter);
 
 app.use((req, res, next) => {
   const time = new Date().toISOString()

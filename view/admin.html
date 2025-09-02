@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Admin Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 20px; background:#0b0c10; color:#eaeaea; }
+    header { display:flex; gap:12px; align-items:center; margin-bottom:16px; }
+    select, input, button, textarea { background:#121417; color:#eaeaea; border:1px solid #2a2f36; border-radius:8px; padding:8px 10px; }
+    button.primary { border-color:#4b84ff; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; }
+    th, td { border-bottom:1px solid #2a2f36; padding:8px; text-align:left; font-size:14px; }
+    tr:hover { background:#11151c; }
+    .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .spacer { flex:1; }
+    .pill { font-size:12px; padding:3px 8px; border:1px solid #2a2f36; border-radius:999px; }
+    dialog { border:none; border-radius:12px; padding:0; max-width:720px; width:min(95vw,720px); background:#0f1217; color:#eaeaea; }
+    .modal { padding:18px; }
+    .form-grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .form-grid label { display:flex; flex-direction:column; gap:6px; font-size:12px; color:#b9c1d0; }
+    .row { display:flex; gap:8px; align-items:center; }
+    .danger { color:#ff6b6b; border-color:#ff6b6b; }
+    .muted { color:#9aa3b2; }
+    .scroll-x { overflow:auto; }
+    footer { margin-top:18px; display:flex; gap:8px; justify-content:flex-end; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 style="margin:0;font-size:18px;">Admin Panel</h1>
+    <span class="pill" id="db-pill">DB: unknown</span>
+    <div class="spacer"></div>
+    <button id="refreshBtn">Refresh</button>
+  </header>
+
+  <div class="toolbar">
+    <label>Table:
+      <select id="tableSelect"></select>
+    </label>
+    <input id="searchInput" placeholder="Search (simple contains)"/>
+    <button class="primary" id="createBtn">+ Create</button>
+    <div class="spacer"></div>
+    <span class="muted" id="countLabel"></span>
+  </div>
+
+  <div class="scroll-x">
+    <table id="dataTable">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <dialog id="editDialog">
+    <div class="modal">
+      <h3 id="dialogTitle" style="margin-top:0;"></h3>
+      <form id="editForm" class="form-grid"></form>
+      <footer>
+        <button id="cancelEditBtn" type="button">Cancel</button>
+        <button id="saveEditBtn" class="primary" type="button">Save</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <script>
+    // ==== CONFIG: tweak endpoints to match your backend ====
+    const API = {
+      // return: { db: "postgres", tables: ["users","devices",...]}
+      meta: "/api/admin/meta",
+      // return: { columns: ["id","name",...], rows: [ {id:1,name:""}, ...], total: 42 }
+      list: (table, search, limit=100, offset=0) =>
+        `/api/admin/${encodeURIComponent(table)}?search=${encodeURIComponent(search||"")}&limit=${limit}&offset=${offset}`,
+      // return created row
+      create: (table) => `/api/admin/${encodeURIComponent(table)}`,
+      // return updated row
+      update: (table, id) => `/api/admin/${encodeURIComponent(table)}/${encodeURIComponent(id)}`,
+      // return { ok: true }
+      del: (table, id) => `/api/admin/${encodeURIComponent(table)}/${encodeURIComponent(id)}`
+    };
+    // Which column acts as primary key when rendering (fallbacks to first column)
+    const PKEY_HINTS = { users: "user_id", devices: "device_id", courses: "course_id" };
+
+    // ==== STATE ====
+    let META = { db: "unknown", tables: [] };
+    let CURRENT = { table: null, columns: [], rows: [], total: 0, search: "" };
+
+    // ==== DOM ====
+    const tableSelect = document.getElementById("tableSelect");
+    const searchInput = document.getElementById("searchInput");
+    const dataTable = document.getElementById("dataTable");
+    const thead = dataTable.querySelector("thead");
+    const tbody = dataTable.querySelector("tbody");
+    const createBtn = document.getElementById("createBtn");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const countLabel = document.getElementById("countLabel");
+    const dbPill = document.getElementById("db-pill");
+
+    const editDialog = document.getElementById("editDialog");
+    const editForm = document.getElementById("editForm");
+    const dialogTitle = document.getElementById("dialogTitle");
+    const cancelEditBtn = document.getElementById("cancelEditBtn");
+    const saveEditBtn = document.getElementById("saveEditBtn");
+
+    // ==== HELPERS ====
+    async function jget(url) {
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+    async function jsend(url, method, body) {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    function primaryKeyFor(table, columns) {
+      const hint = PKEY_HINTS[table];
+      if (hint && columns.includes(hint)) return hint;
+      // guess: id, <table>_id, first column
+      const guesses = ["id", table.replace(/s$/,"") + "_id", table + "_id"];
+      for (const g of guesses) if (columns.includes(g)) return g;
+      return columns[0];
+    }
+
+    function renderTable() {
+      thead.innerHTML = "";
+      tbody.innerHTML = "";
+      const cols = CURRENT.columns;
+      if (!cols.length) return;
+
+      const tr = document.createElement("tr");
+      for (const c of cols) {
+        const th = document.createElement("th");
+        th.textContent = c;
+        tr.appendChild(th);
+      }
+      const thAct = document.createElement("th");
+      thAct.textContent = "Actions";
+      tr.appendChild(thAct);
+      thead.appendChild(tr);
+
+      const pk = primaryKeyFor(CURRENT.table, cols);
+      for (const row of CURRENT.rows) {
+        const tr = document.createElement("tr");
+        for (const c of cols) {
+          const td = document.createElement("td");
+          const v = row[c];
+          td.textContent = v == null ? "" : String(v);
+          tr.appendChild(td);
+        }
+        const tdAct = document.createElement("td");
+        const editBtn = document.createElement("button");
+        editBtn.textContent = "Edit";
+        editBtn.onclick = () => openEdit(row, pk);
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "Delete";
+        delBtn.className = "danger";
+        delBtn.onclick = () => doDelete(row[pk]);
+        tdAct.append(editBtn, " ", delBtn);
+        tr.appendChild(tdAct);
+        tbody.appendChild(tr);
+      }
+
+      countLabel.textContent = `${CURRENT.total} rows`;
+    }
+
+    function buildForm(fields, values={}) {
+      editForm.innerHTML = "";
+      for (const name of fields) {
+        const wrap = document.createElement("label");
+        wrap.innerHTML = `<span>${name}</span>`;
+        const input = document.createElement("input");
+        input.name = name;
+        input.value = values[name] ?? "";
+        // simple type hinting
+        if (/id$/.test(name)) input.readOnly = values[name] != null; // lock PK when editing
+        wrap.appendChild(input);
+        editForm.appendChild(wrap);
+      }
+    }
+
+    function openCreate() {
+      dialogTitle.textContent = `Create in ${CURRENT.table}`;
+      buildForm(CURRENT.columns);
+      editDialog.showModal();
+      saveEditBtn.onclick = doCreate;
+    }
+
+    function openEdit(row, pk) {
+      dialogTitle.textContent = `Edit ${CURRENT.table}`;
+      buildForm(CURRENT.columns, row);
+      editDialog.showModal();
+      saveEditBtn.onclick = () => doUpdate(row[pk], pk);
+    }
+
+    function collectForm() {
+      const data = {};
+      for (const el of editForm.elements) {
+        if (!el.name) continue;
+        data[el.name] = el.value === "" ? null : el.value;
+      }
+      return data;
+    }
+
+    async function doCreate() {
+      try {
+        const body = collectForm();
+        const out = await jsend(API.create(CURRENT.table), "POST", body);
+        editDialog.close();
+        await loadRows();
+      } catch (e) {
+        alert("Create failed: " + e.message);
+      }
+    }
+
+    async function doUpdate(id, pk) {
+      try {
+        const body = collectForm();
+        // ensure PK stays the same
+        if (pk in body) body[pk] = id;
+        await jsend(API.update(CURRENT.table, id), "PUT", body);
+        editDialog.close();
+        await loadRows();
+      } catch (e) {
+        alert("Update failed: " + e.message);
+      }
+    }
+
+    async function doDelete(id) {
+      if (!confirm("Delete this row?")) return;
+      try {
+        await jsend(API.del(CURRENT.table, id), "DELETE", {});
+        await loadRows();
+      } catch (e) {
+        alert("Delete failed: " + e.message);
+      }
+    }
+
+    async function loadMeta() {
+      const meta = await jget(API.meta);
+      META = meta;
+      dbPill.textContent = `DB: ${meta.db || "unknown"}`;
+      tableSelect.innerHTML = "";
+      for (const t of meta.tables || []) {
+        const opt = document.createElement("option");
+        opt.value = t;
+        opt.textContent = t;
+        tableSelect.appendChild(opt);
+      }
+      if (meta.tables?.length) {
+        CURRENT.table = meta.tables[0];
+        tableSelect.value = CURRENT.table;
+        await loadRows();
+      }
+    }
+
+    async function loadRows() {
+      if (!CURRENT.table) return;
+      const data = await jget(API.list(CURRENT.table, CURRENT.search));
+      CURRENT.columns = data.columns || [];
+      CURRENT.rows = data.rows || [];
+      CURRENT.total = data.total ?? CURRENT.rows.length;
+      renderTable();
+    }
+
+    // ==== EVENTS ====
+    tableSelect.addEventListener("change", async () => {
+      CURRENT.table = tableSelect.value;
+      await loadRows();
+    });
+    searchInput.addEventListener("input", async (e) => {
+      CURRENT.search = e.target.value;
+      await loadRows();
+    });
+    createBtn.addEventListener("click", openCreate);
+    refreshBtn.addEventListener("click", loadRows);
+    cancelEditBtn.addEventListener("click", () => editDialog.close());
+
+    // ==== BOOT ====
+    loadMeta().catch(err => alert("Failed to load meta: " + err.message));
+  </script>
+</body>
+</html>

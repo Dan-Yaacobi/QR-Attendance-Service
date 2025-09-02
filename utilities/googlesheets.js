@@ -42,7 +42,8 @@ async function findSheetNameByCourseId(courseId) {
   return sheet.properties.title;
 }
 
-export async function findParticipant(course_id, phone) {
+export async function findParticipant(course_id = 501232, phone) {
+  let course_today = false
   const sheetName = await findSheetNameByCourseId(course_id);
   const sheets = await getSheets();
 
@@ -60,12 +61,57 @@ export async function findParticipant(course_id, phone) {
   const normalize = (s) => String(s ?? '').replace(/\D+/g, ''); // keep digits only
   const target = normalize(phone);
 
-  for (let i = 0; i < values.length; i++) {
+  for (let i = 0; i < values.length; i++){
     const cell = values[i]?.[0] ?? '';
     if (normalize(cell) === target) {
+      course_today = markParticipant(startRow + i, sheets, sheetName)
       return startRow + i; // 1-based row index in the sheet
     }
   }
-
   return null;
+}
+
+function todayDdMmYy() {
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}.${mm}.${yy}`;
+}
+
+// helper: 1-based column number -> A1 letters (e.g., 5 -> "E")
+function toA1(col1) {
+  let s = '';
+  while (col1 > 0) {
+    const m = (col1 - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    col1 = Math.floor((col1 - 1) / 26);
+  }
+  return s;
+}
+export async function markParticipant(row, sheets, sheetName) {
+  const { data } = await sheets.spreadsheets.values.get({
+    spreadsheetId: process.env.MASTER_SHEET_ID,
+    range: `${sheetName}!E3:3`,
+    valueRenderOption: 'FORMATTED_VALUE',
+    majorDimension: 'COLUMNS',
+  });
+
+  const cols = data.values ?? [];
+  const today = todayDdMmYy();
+
+  const idx = cols.findIndex(col => (col?.[0] ?? '') === today);
+  if (idx === -1) return false;
+
+  const col1 = 5 + idx;
+  const targetRange = `${sheetName}!${toA1(col1)}${row}`;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: process.env.MASTER_SHEET_ID,
+    range: targetRange,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [['1']] },
+  });
+
+  return true;
 }

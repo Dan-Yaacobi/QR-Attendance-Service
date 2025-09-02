@@ -9,6 +9,8 @@ import {sendEmail} from './utilities/mailer.js'
 import { createUser} from './db.js'
 import { Pool } from 'pg';
 import qrRouter from './routes/qr.js'
+import { findParticipant } from './utilities/googlesheets.js'
+
 // __dirname replacement in ESM
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -47,12 +49,25 @@ app.get('/sign_in_success',(req,res) => {
 res.sendFile(path.join(__dirname, 'view', 'sign_in_success.html'))
 });
 
-app.post('/login', async (req, res) => {
+app.get('/admin', (req,res) => {
+  res.sendFile(path.join(__dirname, 'view', 'admin.html'))
+})
+
+app.post('/sign_in', async (req, res) => {
   try {
     const { firstName, lastName, phone, email } = req.body;
-    const {userId, deviceId} = await createUser(firstName, lastName, phone, email);
-    console.log(deviceId)
-    res.redirect('/sign_in_success')
+    const courseId = req.params.course_id;
+    if (await findParticipant(courseId,phone)){
+      const {userId, deviceId} = await createUser(firstName, lastName, phone, email);
+      console.log("Success")
+      res.redirect('/sign_in_success')
+
+    }
+    else{
+      console.log("Participant not found")
+      res.redirect('/sign_in_failed')
+
+    }
     // res.json({ ok: true, userId });
   }
   catch (err) {
@@ -69,8 +84,8 @@ app.post('/login', async (req, res) => {
   }
 });
 
-app.post('/login_failed', async (req,res) =>{
-  
+app.get('/sign_in_failed', async (req,res) =>{
+  res.sendFile(path.join(__dirname, 'view', 'sign_in_failed.html'))
 });
 
 const PORT = process.env.PORT || 3000

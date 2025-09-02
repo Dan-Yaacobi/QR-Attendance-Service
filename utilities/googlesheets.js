@@ -65,7 +65,7 @@ export async function findParticipant(course_id = 501232, phone) {
     const cell = values[i]?.[0] ?? '';
     if (normalize(cell) === target) {
       course_today = markParticipant(startRow + i, sheets, sheetName)
-      return startRow + i; // 1-based row index in the sheet
+      return [startRow + i, course_today]; // 1-based row index in the sheet
     }
   }
   return null;
@@ -90,6 +90,7 @@ function toA1(col1) {
   return s;
 }
 export async function markParticipant(row, sheets, sheetName) {
+  //set up
   const { data } = await sheets.spreadsheets.values.get({
     spreadsheetId: process.env.MASTER_SHEET_ID,
     range: `${sheetName}!E3:3`,
@@ -99,7 +100,7 @@ export async function markParticipant(row, sheets, sheetName) {
 
   const cols = data.values ?? [];
   const today = todayDdMmYy();
-
+  //tries to find if there's a course today
   const idx = cols.findIndex(col => (col?.[0] ?? '') === today);
   if (idx === -1) return false;
 

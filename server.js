@@ -11,7 +11,6 @@ import { Pool } from 'pg';
 import qrRouter from './routes/qr.js'
 import { findParticipant } from './utilities/googlesheets.js'
 
-import { saveDeviceId, findDeviceId } from './utilities/device_id_storage.js'
 // __dirname replacement in ESM
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -54,47 +53,46 @@ app.get('/admin', (req,res) => {
   res.sendFile(path.join(__dirname, 'view', 'admin.html'))
 })
 
-//this is reached via scanning the QR
+app.post('/api/check_in', async, (req,res)=>{
+  try{
+    const { deviceId, courseId } = req.body ?? {};
+    if (!deviceId){
+      window.location.replace('/view/sign_in.html')
+    }
+    else{
+      checkIn(courseId,deviceId)
+    }
+  }
+  catch(err){
+    console.error(err);
+  }
+})
+
+async function checkIn(courseId, deviceId){
+  const userId = await getUserIdByDevice(deviceId)
+  const userPhone = await getUserPhoneById(userId)
+  const [row,marked] = await findParticipant(courseId,userPhone)
+  if (marked){
+        console.log("check in success")
+  }
+  else{
+        console.log("check in failed")
+  }
+
+}
+//this is reached via scanning the login
 app.post('/sign_in', async (req, res) => {
   try {
     const courseId = req.params.course_id;
-    if (await findDeviceId()){
-
-      const user_id = await getUserIdByDevice()
-      if (user_id){ // user device_id is found in the DB
-        const user_phone = await getUserPhoneById(user_id) // this will never be NULL because of DB constraint
-        const [row,marked] = await findParticipant(courseId,user_phone)
-        if (marked){
-          console.log("check in success")
-        }
-        else{
-          console.log("check in failed")
-        }
-      }
-      else{ // the scenario where there exist a device_id in the user's web local storage but it doesn't match any user_id
-
-      }
-    }
-    else{
-    // get paramaters
     const { firstName, lastName, phone, email } = req.body;
+    const {userId, deviceId} = await createUser(firstName, lastName, phone, email);
     const [row,marked] = await findParticipant(courseId,phone)
-    if (row){
-      const {userId, deviceId} = await createUser(firstName, lastName, phone, email);
-      
-      saveDeviceId(deviceId)
-      console.log("Success")
-      res.redirect('/sign_in_success')
-
-    }
+    if (marked){
+        console.log("check in success")
+      }
     else{
-      console.log("Participant not found")
-      res.redirect('/sign_in_failed')
-
-    }
-    // res.json({ ok: true, userId });
-    }
-
+        console.log("check in failed")
+      }
   }
   catch (err) {
     if (err.code === '23505') { //UNIQUE VIOLATION POSTGRES ERROR

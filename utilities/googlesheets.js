@@ -1,6 +1,8 @@
 import { google } from 'googleapis'
 
 //initialize
+console.log('raw env:', JSON.stringify(process.env.SHEETS_SERVICE_ACCOUNT_JSON));
+console.log('cwd:', process.cwd());
 const auth = new google.auth.GoogleAuth({
   keyFile: process.env.SHEETS_SERVICE_ACCOUNT_JSON,
   scopes: ['https://www.googleapis.com/auth/spreadsheets'],
@@ -64,8 +66,7 @@ export async function findParticipant(course_id = 501232, phone) {
   for (let i = 0; i < values.length; i++){
     const cell = values[i]?.[0] ?? '';
     if (normalize(cell) === target) {
-      course_today = markParticipant(startRow + i, sheets, sheetName)
-      return [startRow + i, course_today]; // 1-based row index in the sheet
+      return startRow + i; // 1-based row index in the sheet
     }
   }
   return null;
@@ -89,8 +90,10 @@ function toA1(col1) {
   }
   return s;
 }
-export async function markParticipant(row, sheets, sheetName) {
+export async function markParticipant(row,courseId) {
   //set up
+  const sheetName = await findSheetNameByCourseId(courseId);
+  const sheets = await getSheets();
   const { data } = await sheets.spreadsheets.values.get({
     spreadsheetId: process.env.MASTER_SHEET_ID,
     range: `${sheetName}!E3:3`,

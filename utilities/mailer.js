@@ -13,7 +13,7 @@ const transporter = nodemailer.createTransport({
 
 export async function sendEmail(to, subject, text){
     const mailOptions = {
-        from: `Game Feedback Bot: <${process.env.SMTP_USER}>`,
+        from: `QR image from <${process.env.SMTP_USER}>`,
         to,
         subject,
         text

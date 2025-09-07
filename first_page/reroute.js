@@ -20,7 +20,8 @@ export async function getDeviceId() {
         }).catch(() => {});
         return id || null;
       }
-      else{window.location.replace("/view/sign_in.html?course_id="+encodeURIComponent(course_id))}
+      else{window.location.replace("./sign_in?course_id="+encodeURIComponent(course_id))
+      }
     }
     catch {
       fetch('/api/check_in', {
@@ -37,7 +38,7 @@ export async function getDeviceId() {
   }
 }
 
-getDeviceId()
+await getDeviceId()
 
 // export async function saveDeviceId(device_id) {
 //   try {

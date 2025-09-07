@@ -158,6 +158,17 @@ export async function getUserIdByDevice(device_uuid, opts = {}) {
   return rows[0] ? rows[0].user_id : null;
 }
 
+export async function getUserNameByUserId(userId, opts = {}){
+  const client = opts.client || pool;
+  const sql = `
+    SELECT first_name
+    FROM users
+    WHERE user_id = $1
+  `;
+  const { rows } = await client.query(sql, [userId]);
+  return rows[0] ? rows[0].user_id : null;
+}
+
 export async function linkDeviceToUser(user_id, device_uuid, opts = {}) {
   const client = opts.client || pool;
 
@@ -170,3 +181,4 @@ export async function linkDeviceToUser(user_id, device_uuid, opts = {}) {
   const { rows } = await client.query(sql, [device_uuid, user_id]);
   return rows[0]; // { device_uuid, user_id }
 }
+

@@ -8,6 +8,8 @@
   <h1>Contact Form</h1>
 
   <form id="userForm" action="/sign_in" method="POST">
+    <input type="hidden" id="course_id" name="course_id">
+
     <label for="firstName">First Name:</label>
     <input type="text" id="firstName" name="firstName" required />
 
@@ -23,7 +25,12 @@
     <button type="submit">Submit</button>
   </form>
   <script>
-
+    const id = new URLSearchParams(location.search).get('course_id');
+    if (id) {
+      const form = document.getElementById('userForm');
+      document.getElementById('course_id').value = id;
+      form.action = `/sign_in?course_id=${encodeURIComponent(id)}`;
+    }
   </script>
 </body>
 </html>

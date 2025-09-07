@@ -5,10 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 </head>
 <body>
-  <h1>נרשמת בהצלחה!</h1>
+  <h1 id="welcome" dir="rtl"></h1>
   </form>
   <script>
+    const params = new URLSearchParams(window.location.search);
 
+    const name = params.get("name");
+
+    if (name) {
+    document.getElementById("welcome").textContent = "נרשמת בהצלחה, " + name + "!";    }
   </script>
 </body>
 </html>

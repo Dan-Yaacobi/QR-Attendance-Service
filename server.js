@@ -62,7 +62,10 @@ app.post('/api/check_in', async (req,res)=>{
       res.redirect("/view/sign_in.html?course_id="+encodeURIComponent(courseId))
     }
     else{
-      await checkIn(courseId,deviceId)
+      const name = await checkIn(courseId,deviceId)
+      if(name){
+        // go to success
+      }
     }
   }
   catch(err){
@@ -80,16 +83,25 @@ async function checkIn(courseId, deviceId){
     const row = await findParticipant(courseId,userPhone)
     if (await markParticipant(row,courseId)){
           const name = await getUserNameByUserId(userId)
-          res.redirect('/sign_in_success?name='+encodeURIComponent(name))
+          return name
+          // res.redirect('/sign_in_success?name='+encodeURIComponent(name))
     }
     else{
-          console.log("check in failed")
+          // res.redirect('/sign_in_failed')
+          return null
     }
   }
   catch(err){
     console.error(err)
   }
 }
+
+app.get('/sign_in_success_save_id', async (req,res) => {
+  const deviceId = req.query.id;
+  if (deviceId){
+    
+  }
+})
 
 //this is reached via scanning the login
 app.post('/sign_in', async (req, res) => {
@@ -98,13 +110,17 @@ app.post('/sign_in', async (req, res) => {
     const { firstName, lastName, phone, email } = req.body;
     if(await findParticipant(courseId, phone)){
       const {userId, deviceId} = await createUser(firstName, lastName, phone, email);
-      await checkIn(courseId,deviceId)
+
+      const name = await checkIn(courseId,deviceId,res)
+
+      console.log(deviceId)
+      if(userId && name){
+        res.redirect(`/sign_in_success_save_id?id=${encodeURIComponent(deviceId)}`);
+      }
     }
     else{
-      console.log("Cannot find participant")
+      res.redirect('/sign_in_failed')
     }
-
-    res.json({ deviceId });
   }
   catch (err) {
     if (err.code === '23505') { //UNIQUE VIOLATION POSTGRES ERROR

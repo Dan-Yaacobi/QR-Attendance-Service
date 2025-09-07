@@ -166,7 +166,8 @@ export async function getUserNameByUserId(userId, opts = {}){
     WHERE user_id = $1
   `;
   const { rows } = await client.query(sql, [userId]);
-  return rows[0] ? rows[0].user_id : null;
+  console.log(rows)
+  return rows[0] ? rows[0].first_name : null;
 }
 
 export async function linkDeviceToUser(user_id, device_uuid, opts = {}) {

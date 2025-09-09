@@ -96,7 +96,7 @@ async function checkIn(courseId, deviceId){
   }
 }
 
-app.get('/sign_in_success_save_id', async (req,res) => {
+app.get('/sign_in_success', async (req,res) => {
   const deviceId = req.query.id;
   if (deviceId){
     
@@ -115,7 +115,7 @@ app.post('/sign_in', async (req, res) => {
 
       console.log(deviceId)
       if(userId && name){
-        res.redirect(`/sign_in_success_save_id?id=${encodeURIComponent(deviceId)}`);
+        res.redirect(`/sign_in_success?id=${encodeURIComponent(deviceId)}`);
       }
     }
     else{

@@ -11,9 +11,38 @@
     const params = new URLSearchParams(window.location.search);
 
     const name = params.get("name");
+    const deviceId = params.get("id")
 
-    if (name) {
-    document.getElementById("welcome").textContent = "נרשמת בהצלחה, " + name + "!";    }
+    function saveDeviceId(deviceId){
+      try{
+        if (!deviceId) return false;
+          localStorage.setItem('device_id', deviceId);
+          return localStorage.getItem('device_id') === deviceId;
+      } 
+      catch (error){
+        return false;
+      }
+    }
+
+    if (name){
+      document.getElementById("welcome").textContent = "נרשמת בהצלחה, " + name;
+      console.log(name)
+    }
+    if(deviceId){
+      if(saveDeviceId(deviceId)){
+        if(!name){
+          document.getElementById("welcome").textContent = "נרשמת למערכת, אבל אין לך קורס היום";
+        }
+        else{
+          document.getElementById("welcome").textContent = "נרשמת למערכת וגם לשיעור של היום, " + name;
+
+        }
+        fetch
+      }
+    }
+
+
+
   </script>
 </body>
 </html>

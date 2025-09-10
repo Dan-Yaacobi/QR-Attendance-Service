@@ -166,7 +166,6 @@ export async function getUserNameByUserId(userId, opts = {}){
     WHERE user_id = $1
   `;
   const { rows } = await client.query(sql, [userId]);
-  console.log(rows)
   return rows[0] ? rows[0].first_name : null;
 }
 
@@ -183,3 +182,14 @@ export async function linkDeviceToUser(user_id, device_uuid, opts = {}) {
   return rows[0]; // { device_uuid, user_id }
 }
 
+export async function findCourseById(course_id, opts = {}){
+  const client = opts.client || pool;
+  const sql = ` 
+    SELECT title
+    FROM courses
+    WHERE course_id = $1
+  `;
+
+  const { rows } = await client.query(sql, [course_id]);
+  return rows[0] ? rows[0].title : null;
+}

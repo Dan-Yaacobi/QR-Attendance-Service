@@ -6,7 +6,7 @@ import cors from 'cors'
 import { fileURLToPath } from 'url'
 
 import {sendEmail} from './utilities/mailer.js'
-import { createUser, getUserIdByDevice, getUserPhoneById, getUserNameByUserId} from './db.js'
+import { createUser, getUserIdByDevice, getUserPhoneById, getUserNameByUserId, findCourseById} from './db.js'
 import { Pool } from 'pg';
 import qrRouter from './routes/qr.js'
 import { findParticipant, markParticipant } from './utilities/googlesheets.js'
@@ -47,24 +47,37 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'view','sign_in.html'))
   });
 
-app.get('/sign_in_success',(req,res) => {
-res.sendFile(path.join(__dirname, 'view', 'sign_in_success.html'))
-});
 
 app.get('/admin', (req,res) => {
   res.sendFile(path.join(__dirname, 'view', 'admin.html'))
 })
 
+app.get('/sign_in_success', (req,res) => {
+    res.sendFile(path.join(__dirname, 'view', 'sign_in_success.html'))
+
+})
+app.get('/sign_in_failed', (req,res) =>{
+  res.sendFile(path.join(__dirname, 'view', 'sign_in_failed.html'))
+
+})
 app.post('/api/check_in', async (req,res)=>{
   try{
     const { deviceId, courseId } = req.body ?? {};
-    if (!deviceId){
-      res.redirect("/view/sign_in.html?course_id="+encodeURIComponent(courseId))
+    if(!findCourseById(courseId)){
+      res.redirect("/view/sign_in_failed")
     }
     else{
-      const name = await checkIn(courseId,deviceId)
-      if(name){
-        // go to success
+      if (!deviceId){
+        res.redirect("/view/sign_in.html?course_id="+encodeURIComponent(courseId))
+      }
+      else{
+        const {name, ok} = await checkIn(courseId,deviceId)
+        if(name && ok){
+          res.redirect(`/sign_in_success?name=${encodeURIComponent(name)}`)
+        }
+        else{
+          res.redirect("/view/sign_in_failed")
+        }
       }
     }
   }
@@ -72,6 +85,7 @@ app.post('/api/check_in', async (req,res)=>{
     console.error(err);
   }
 })
+
 
 async function checkIn(courseId, deviceId){
   try{
@@ -81,46 +95,49 @@ async function checkIn(courseId, deviceId){
     }
     const userPhone = await getUserPhoneById(userId)
     const row = await findParticipant(courseId,userPhone)
-    if (await markParticipant(row,courseId)){
+    const mark = await markParticipant(row,courseId)
+    if (mark == 0){
           const name = await getUserNameByUserId(userId)
-          return name
-          // res.redirect('/sign_in_success?name='+encodeURIComponent(name))
+          return {name: name, ok: true}
+    }
+    else if(mark == 1){
+      return {name: 1, ok : false}
     }
     else{
-          // res.redirect('/sign_in_failed')
-          return null
+          return {name: null, ok: false}
     }
   }
   catch(err){
     console.error(err)
+    return {name: null, ok: false}
   }
 }
-
-app.get('/sign_in_success', async (req,res) => {
-  const deviceId = req.query.id;
-  if (deviceId){
-    
-  }
-})
 
 //this is reached via scanning the login
 app.post('/sign_in', async (req, res) => {
   try {
     const courseId = req.query.course_id ?? req.body.course_id;
-    const { firstName, lastName, phone, email } = req.body;
-    if(await findParticipant(courseId, phone)){
-      const {userId, deviceId} = await createUser(firstName, lastName, phone, email);
-
-      const name = await checkIn(courseId,deviceId,res)
-
-      console.log(deviceId)
-      if(userId && name){
-        res.redirect(`/sign_in_success?id=${encodeURIComponent(deviceId)}`);
+    if(!findCourseById(courseId)){
+      res.redirect("/view/sign_in_failed")
+    }
+      else{
+      const { firstName, lastName, phone, email } = req.body;
+      if(await findParticipant(courseId, phone)){
+        const {userId, deviceId} = await createUser(firstName, lastName, phone, email); // creates user in the DB as well as a device id which connects to it
+        const {name, ok} = await checkIn(courseId,deviceId)
+        
+        if(userId && ok){
+          res.redirect(`/sign_in_success?id=${encodeURIComponent(deviceId)}&name=${encodeURIComponent(name)}`);
+        }
+        else if(name == 1 && !ok){
+          res.redirect("/view/sign_in_failed")
+        }
+      }
+      else{
+        res.redirect("/view/sign_in_failed")
       }
     }
-    else{
-      res.redirect('/sign_in_failed')
-    }
+
   }
   catch (err) {
     if (err.code === '23505') { //UNIQUE VIOLATION POSTGRES ERROR

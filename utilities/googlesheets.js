@@ -110,6 +110,16 @@ export async function markParticipant(row,courseId) {
   const col1 = 5 + idx;
   const targetRange = `${sheetName}!${toA1(col1)}${row}`;
 
+  const { data: existing } = await sheets.spreadsheets.values.get({
+  spreadsheetId: process.env.MASTER_SHEET_ID,
+  range: targetRange,
+  valueRenderOption: 'FORMATTED_VALUE',
+  majorDimension: 'ROWS',
+  });
+  const cell_value = existing.values?.[0]?.[0] ?? '';
+  if(cell_value == '1'){
+    return 1
+  }
   await sheets.spreadsheets.values.update({
     spreadsheetId: process.env.MASTER_SHEET_ID,
     range: targetRange,
@@ -117,5 +127,5 @@ export async function markParticipant(row,courseId) {
     requestBody: { values: [['1']] },
   });
 
-  return true;
+  return 0;
 }

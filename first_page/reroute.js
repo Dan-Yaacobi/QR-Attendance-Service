@@ -11,14 +11,14 @@ export async function validateToken(token){
 export async function getDeviceId() {
   if (validateToken(token)){
     try {
-      const id = localStorage.getItem(device_key);
-      if(id){
+      const device_id = localStorage.getItem(device_key);
+      if(device_id){
         fetch('/api/check_in', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ found: Boolean(id), id: course_id }),
+          body: JSON.stringify({ deviceId: device_id, courseId: course_id }),
         }).catch(() => {});
-        return id || null;
+        return device_id || null;
       }
       else{window.location.replace("./sign_in?course_id="+encodeURIComponent(course_id))
       }
@@ -27,14 +27,14 @@ export async function getDeviceId() {
       fetch('/api/check_in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ found: false, id: 'exception' }),
+        body: JSON.stringify({ deviceId: false, courseId: 'exception' }),
       }).catch(() => {});
       return null;
     }
   }
   else{
     console.log("Link Expired")
-    course_id = 0
+
   }
 }
 

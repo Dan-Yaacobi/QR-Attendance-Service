@@ -1,8 +1,6 @@
 import { google } from 'googleapis'
 
 //initialize
-console.log('raw env:', JSON.stringify(process.env.SHEETS_SERVICE_ACCOUNT_JSON));
-console.log('cwd:', process.cwd());
 const auth = new google.auth.GoogleAuth({
   keyFile: process.env.SHEETS_SERVICE_ACCOUNT_JSON,
   scopes: ['https://www.googleapis.com/auth/spreadsheets'],

@@ -9,9 +9,10 @@ import { createUser, getUserIdByDevice, getUserPhoneById, getUserNameByUserId, f
 import { Pool } from 'pg';
 import { findParticipant, markParticipant } from './utilities/googlesheets.js';
 import logger from './middleware/logger.js';
-import errorHandler from './middleware/error.js'
+import errorHandler from './middleware/error_handler.js'
 import sign_in from './routes/sign_in.js';
-
+import notFound from './middleware/notfound.js'
+import errorPage from './routes/error.js'
 // __dirname replacement in ESM
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -20,6 +21,8 @@ const app = express()
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 // Middleware
+app.use('/api/sign_in', sign_in)
+
 app.use(cors())
 app.use(express.json())
 app.use(express.static('view'))
@@ -29,9 +32,8 @@ app.use(session({
   saveUninitialized: false
 }))
 app.use(express.urlencoded({ extended: true }));
-app.use(logger)
+// app.use(logger)
 
-app.use('/api/sign_in', sign_in)
 
 // Routes
 app.post('/api/check_in', async (req,res)=>{
@@ -89,12 +91,9 @@ async function checkIn(courseId, deviceId){
 
 
 //Error handler
-app.use((req,res,next)=>{
-  const error = new Error("Not Found");
-  error.status = 404;
-  next(error);
-})
+app.use(notFound)
 app.use(errorHandler);
+// app.use('/error', errorPage)
 
 const PORT = process.env.PORT || 3000
 app.listen(PORT, () => {

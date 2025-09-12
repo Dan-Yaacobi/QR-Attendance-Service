@@ -1,12 +1,17 @@
 import express from 'express';
 const router = express.Router();
 
+router.get('/:course_id', async (req,res,next) => {
+    const course_id = req.params.course_id
+    res.redirect(`/sign_in.html?course_id=${encodeURIComponent(course_id)}`)
+});
+
 router.post('/', async (req, res, next) => {
   try {
     const courseId = req.query.course_id ?? req.body.course_id;
     if(!findCourseById(courseId)){
         const error = new Error("Invalid Course ID")
-        error.status = 404
+        error.status = 400
         return next(error)
     }
       else{
@@ -23,22 +28,32 @@ router.post('/', async (req, res, next) => {
         }
       }
       else{
-        res.redirect("/view/sign_in_failed")
+        const error = new Error("Phone number is incorrect")
+        error.status = 403
+        return next(error)
       }
     }
 
   }
   catch (err) {
-    if (err.code === '23505') { //UNIQUE VIOLATION POSTGRES ERROR
-      res.status(409).json({ ok: false, error: 'User already exists' });
-    }
-    else if (err.code === '23502') { //NULL VIOLATION POSTGRES ERROR
-      res.status(400).json({ ok: false, error: 'Phone is required' });
-    }
-    else {
-      console.error(err);
-      res.status(500).json({ ok: false, error: 'Internal server error' });
-    }
+    const error = new Error(err.message)
+    error.status = err.code
+    next(error)
+    // const message = "" 
+    // const status = ""
+    // if (err.code === '23505') { //UNIQUE VIOLATION POSTGRES ERROR
+    //   message = 'User already exists'
+    //   status = 409
+    // }
+    // else if (err.code === '23502') { //NULL VIOLATION POSTGRES ERROR
+    //   message = 'Phone is required';
+    //   status = 400;
+    // }
+    // else {
+    //   message = 'Internal server error' ;
+    //   status = 500
+    // }
+
   }
 });
 

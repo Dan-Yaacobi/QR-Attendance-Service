@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body>
+  <h1 id="error"></h1>
+  <p id="message"></p>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+
+    const status = params.get("status");
+    const msg = params.get("msg")
+    if(status && msg){
+        document.getElementById("error").textContent = "Error "+status
+        document.getElementById("message").textContent = msg
+    }
+  </script>
+</body>
+</html>

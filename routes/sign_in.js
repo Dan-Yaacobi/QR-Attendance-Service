@@ -1,12 +1,23 @@
 import express from 'express';
+import { findCourseById , createUser} from '../db.js';
+import { checkIn}  from '../utilities/check_in.js';
+import { findParticipant } from '../utilities/googlesheets.js';
+
 const router = express.Router();
 
-router.get('/:course_id', async (req,res,next) => {
-    const course_id = req.params.course_id
+router.get('/', async (req,res,next) => {
+    const course_id = req.query.course_id
+    console.log(course_id)
+    if(!course_id){
+      const error = new Error("Invalid Course ID")
+      error.status = 400
+      return next(error)
+    }
     res.redirect(`/sign_in.html?course_id=${encodeURIComponent(course_id)}`)
 });
 
 router.post('/', async (req, res, next) => {
+  console.log("posting")
   try {
     const courseId = req.query.course_id ?? req.body.course_id;
     if(!findCourseById(courseId)){

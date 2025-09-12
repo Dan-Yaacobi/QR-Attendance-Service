@@ -6,15 +6,13 @@
 </head>
 <body>
   <h1 id="error"></h1>
-  <p id="message"></p>
   <script>
     const params = new URLSearchParams(window.location.search);
 
     const status = params.get("status");
-    const msg = params.get("msg")
-    if(status && msg){
+    if(status){
         document.getElementById("error").textContent = "Error "+status
-        document.getElementById("message").textContent = msg
+
     }
   </script>
 </body>
